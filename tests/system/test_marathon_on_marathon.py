@@ -16,6 +16,7 @@ import logging
 from datetime import timedelta
 from shakedown.clients import mesos, marathon
 from shakedown.dcos.command import run_command_on_master
+from shakedown.dcos.marathon import deployment_wait
 
 # the following lines essentially do:
 #     from marathon_common_tests import test_*
@@ -92,7 +93,7 @@ def test_mom_when_mom_agent_bounced():
     with shakedown.marathon_on_marathon():
         client = marathon.create_client()
         client.add_app(app_def)
-        common.deployment_wait(service_id=app_id)
+        deployment_wait(service_id=app_id)
         tasks = client.get_tasks(app_id)
         original_task_id = tasks[0]['id']
 
@@ -118,7 +119,7 @@ def test_mom_when_mom_process_killed():
     with shakedown.marathon_on_marathon():
         client = marathon.create_client()
         client.add_app(app_def)
-        common.deployment_wait(service_id=app_id)
+        deployment_wait(service_id=app_id)
         tasks = client.get_tasks(app_id)
         original_task_id = tasks[0]['id']
 
@@ -242,7 +243,7 @@ def test_framework_unavailable_on_mom():
     with shakedown.marathon_on_marathon():
         client = marathon.create_client()
         client.add_app(app_def)
-        common.deployment_wait(service_id=app_id)
+        deployment_wait(service_id=app_id)
     try:
         common.wait_for_service_endpoint('pyfw', 15)
     except Exception:

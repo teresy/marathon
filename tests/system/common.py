@@ -13,6 +13,7 @@ from datetime import timedelta
 from json.decoder import JSONDecodeError
 from functools import lru_cache
 from fixtures import get_ca_file
+from shakedonw.marathon import deployment_wait
 from shakedown.clients import mesos, marathon, authentication, dcos_url_path
 from shakedown.clients.authentication import dcos_acs_token, DCOSAcsAuth
 from shakedown.dcos import dcos_version, marathon_leader_ip, master_leader_ip
@@ -26,7 +27,7 @@ from shakedown.dcos.master import get_all_master_ips
 from shakedown.dcos.package import install_package_and_wait, package_installed
 from shakedown.dcos.service import get_marathon_tasks, get_service_ips, get_service_task, service_available_predicate
 from shakedown.errors import DCOSException, DCOSHTTPException
-from shakedown.matcher import assert_that, eventually, has_len
+from shakedown.matcher import assert_that, eventually
 from precisely import equal_to
 
 logger = logging.getLogger(__name__)
@@ -681,42 +682,6 @@ def agent_hostname_by_id(agent_id):
             return agent['hostname']
 
     return None
-
-
-def deployments_for(service_id=None, deployment_id=None):
-    deployments = marathon.create_client().get_deployments()
-    if deployment_id:
-        filtered = [
-            deployment for deployment in deployments
-            if deployment_id == deployment["id"]
-        ]
-        return filtered
-    elif service_id:
-        filtered = [
-            deployment for deployment in deployments
-            if service_id in deployment['affectedApps'] or service_id in deployment['affectedPods']
-        ]
-        return filtered
-    else:
-        return deployments
-
-
-def deployment_wait(service_id=None, deployment_id=None, wait_fixed=2000, max_attempts=60):
-    """ Wait for a specific app/pod to deploy successfully. If no app/pod Id passed, wait for all
-        current deployments to succeed. This inner matcher will retry fetching deployments
-        after `wait_fixed` milliseconds but give up after `max_attempts` tries.
-    """
-    assert not all([service_id, deployment_id]), "Use either deployment_id or service_id, but not both."
-
-    if deployment_id:
-        logger.info("Waiting for the deployment_id {} to finish".format(deployment_id))
-    elif service_id:
-        logger.info('Waiting for {} to deploy successfully'.format(service_id))
-    else:
-        logger.info('Waiting for all current deployments to finish')
-
-    assert_that(lambda: deployments_for(service_id, deployment_id),
-                eventually(has_len(0), wait_fixed=wait_fixed, max_attempts=max_attempts))
 
 
 @retrying.retry(wait_fixed=1000, stop_max_attempt_number=60, retry_on_exception=ignore_exception)

@@ -8,12 +8,14 @@ import common
 import fixtures
 import os
 import pytest
+
 import shakedown
 import json
 import logging
 
 from shakedown import http
 from shakedown.clients import marathon
+from shakedown.dcos.marathon import deployment_wait
 from urllib.parse import urljoin
 from utils import get_resource
 
@@ -60,7 +62,7 @@ def remove_mom_ee():
 
     client = marathon.create_client()
     client.remove_app(MOM_EE_NAME)
-    common.deployment_wait(MOM_EE_NAME)
+    deployment_wait(MOM_EE_NAME)
     logger.info('Successfully removed {}'.format(MOM_EE_NAME))
 
 
@@ -107,7 +109,7 @@ def assert_mom_ee(version, security_mode='permissive'):
 
     client = marathon.create_client()
     client.add_app(app_def)
-    common.deployment_wait(service_id=app_id)
+    deployment_wait(service_id=app_id)
     common.wait_for_service_endpoint(mom_ee_endpoint(version, security_mode), path="ping")
 
 
@@ -146,7 +148,7 @@ def simple_sleep_app(name):
         app_id = app_def["id"]
 
         client.add_app(app_def)
-        common.deployment_wait(service_id=app_id)
+        deployment_wait(service_id=app_id)
 
         tasks = shakedown.dcos.service.get_service_task(name, app_id.lstrip("/"))
         logger.info('MoM-EE tasks: {}'.format(tasks))

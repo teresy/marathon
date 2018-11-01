@@ -7,6 +7,7 @@ import pods
 import pytest
 import retrying
 import requests
+
 import shakedown
 import time
 import logging
@@ -16,7 +17,7 @@ from shakedown.clients.authentication import dcos_acs_token, DCOSAcsAuth
 from shakedown.dcos.agent import required_private_agents # NOQA F401
 from shakedown.dcos.cluster import dcos_version_less_than # NOQA F401
 from shakedown.dcos.command import run_command_on_master
-from shakedown.dcos.marathon import marathon_version_less_than # NOQA F401
+from shakedown.dcos.marathon import deployment_wait, marathon_version_less_than # NOQA F401
 from urllib.parse import urljoin
 
 from fixtures import sse_events, wait_for_marathon_and_cleanup # NOQA
@@ -75,7 +76,7 @@ def test_create_pod():
 
     client = marathon.create_client()
     client.add_pod(pod_def)
-    common.deployment_wait(service_id=pod_id)
+    deployment_wait(service_id=pod_id)
 
     pod = client.show_pod(pod_id)
     assert pod is not None, "The pod has not been created"
@@ -104,7 +105,7 @@ def test_create_pod_with_private_image():
 
     try:
         client.add_pod(pod_def)
-        common.deployment_wait(service_id=pod_id, max_attempts=300)
+        deployment_wait(service_id=pod_id, max_attempts=300)
         pod = client.show_pod(pod_id)
         assert pod is not None, "The pod has not been created"
     finally:
@@ -130,14 +131,14 @@ async def test_event_channel_for_pods(sse_events):
 
     client = marathon.create_client()
     client.add_pod(pod_def)
-    common.deployment_wait(service_id=pod_id)
+    deployment_wait(service_id=pod_id)
 
     await common.assert_event('pod_created_event', sse_events)
     await common.assert_event('deployment_step_success', sse_events)
 
     pod_def["scaling"]["instances"] = 3
     client.update_pod(pod_id, pod_def)
-    common.deployment_wait(service_id=pod_id)
+    deployment_wait(service_id=pod_id)
 
     await common.assert_event('pod_updated_event', sse_events)
 
@@ -151,10 +152,10 @@ def test_remove_pod():
 
     client = marathon.create_client()
     client.add_pod(pod_def)
-    common.deployment_wait(service_id=pod_id)
+    deployment_wait(service_id=pod_id)
 
     client.remove_pod(pod_id)
-    common.deployment_wait(service_id=pod_id)
+    deployment_wait(service_id=pod_id)
 
     try:
         client.show_pod(pod_id)
@@ -174,7 +175,7 @@ def test_multi_instance_pod():
 
     client = marathon.create_client()
     client.add_pod(pod_def)
-    common.deployment_wait(service_id=pod_id)
+    deployment_wait(service_id=pod_id)
 
     status = get_pod_status(pod_id)
     assert len(status["instances"]) == 3, \
@@ -191,7 +192,7 @@ def test_scale_up_pod():
 
     client = marathon.create_client()
     client.add_pod(pod_def)
-    common.deployment_wait(service_id=pod_id)
+    deployment_wait(service_id=pod_id)
 
     status = get_pod_status(pod_id)
     assert len(status["instances"]) == 1, \
@@ -199,7 +200,7 @@ def test_scale_up_pod():
 
     pod_def["scaling"]["instances"] = 3
     client.update_pod(pod_id, pod_def)
-    common.deployment_wait(service_id=pod_id)
+    deployment_wait(service_id=pod_id)
 
     status = get_pod_status(pod_id)
     assert len(status["instances"]) == 3, \
@@ -216,7 +217,7 @@ def test_scale_down_pod():
 
     client = marathon.create_client()
     client.add_pod(pod_def)
-    common.deployment_wait(service_id=pod_id)
+    deployment_wait(service_id=pod_id)
 
     status = get_pod_status(pod_id)
     assert len(status["instances"]) == 3, \
@@ -224,7 +225,7 @@ def test_scale_down_pod():
 
     pod_def["scaling"]["instances"] = 1
     client.update_pod(pod_id, pod_def)
-    common.deployment_wait(service_id=pod_id)
+    deployment_wait(service_id=pod_id)
 
     status = get_pod_status(pod_id)
     assert len(status["instances"]) == 1, \
@@ -251,11 +252,11 @@ def test_create_and_update_pod():
 
     client = marathon.create_client()
     client.add_pod(pod_def)
-    common.deployment_wait(service_id=pod_id)
+    deployment_wait(service_id=pod_id)
 
     pod_def["scaling"]["instances"] = 3
     client.update_pod(pod_id, pod_def)
-    common.deployment_wait(service_id=pod_id)
+    deployment_wait(service_id=pod_id)
 
     versions = get_pod_versions(pod_id)
     assert len(versions) == 2, "The number of versions is {}, but 2 was expected".format(len(versions))
@@ -281,7 +282,7 @@ def test_two_pods_with_shared_volume():
 
     client = marathon.create_client()
     client.add_pod(pod_def)
-    common.deployment_wait(service_id=pod_id)
+    deployment_wait(service_id=pod_id)
 
     tasks = common.get_pod_tasks(pod_id)
     assert len(tasks) == 2, "The number of tasks is {} after deployment, but 2 was expected".format(len(tasks))
@@ -305,7 +306,7 @@ def test_pod_restarts_on_nonzero_exit_code():
 
     client = marathon.create_client()
     client.add_pod(pod_def)
-    common.deployment_wait(service_id=pod_id)
+    deployment_wait(service_id=pod_id)
 
     tasks = common.get_pod_tasks(pod_id)
     initial_id1 = tasks[0]['id']
@@ -327,7 +328,7 @@ def test_pod_multi_port():
 
     client = marathon.create_client()
     client.add_pod(pod_def)
-    common.deployment_wait(service_id=pod_id)
+    deployment_wait(service_id=pod_id)
 
     pod = client.show_pod(pod_id)
 
@@ -355,7 +356,7 @@ def test_pod_port_communication():
 
     client = marathon.create_client()
     client.add_pod(pod_def)
-    common.deployment_wait(service_id=pod_id)
+    deployment_wait(service_id=pod_id)
 
     tasks = common.get_pod_tasks(pod_id)
     assert len(tasks) == 2, "The number of tasks is {} after deployment, but 2 was expected".format(len(tasks))
@@ -374,7 +375,7 @@ def test_pin_pod():
 
     client = marathon.create_client()
     client.add_pod(pod_def)
-    common.deployment_wait(service_id=pod_id)
+    deployment_wait(service_id=pod_id)
 
     tasks = common.get_pod_tasks(pod_id)
     assert len(tasks) == 2, "The number of tasks is {} after deployment, but 2 was expected".format(len(tasks))
@@ -392,7 +393,7 @@ def test_pod_health_check():
 
     client = marathon.create_client()
     client.add_pod(pod_def)
-    common.deployment_wait(service_id=pod_id)
+    deployment_wait(service_id=pod_id)
 
     @retrying.retry(wait_fixed=1000, wait_exponential_max=30000, retry_on_exception=common.ignore_exception)
     def assert_all_pods_healthy(pod_id):
@@ -419,7 +420,7 @@ def test_pod_with_container_network():
 
     client = marathon.create_client()
     client.add_pod(pod_def)
-    common.deployment_wait(service_id=pod_id)
+    deployment_wait(service_id=pod_id)
 
     task = common.task_by_name(common.get_pod_tasks(pod_id), "nginx")
 
@@ -449,7 +450,7 @@ def test_pod_with_container_bridge_network():
 
     client = marathon.create_client()
     client.add_pod(pod_def)
-    common.deployment_wait(service_id=pod_id)
+    deployment_wait(service_id=pod_id)
 
     task = common.task_by_name(common.get_pod_tasks(pod_id), "nginx")
     network_info = common.running_status_network_info(task['statuses'])
@@ -486,7 +487,7 @@ def test_pod_health_failed_check():
 
     client = marathon.create_client()
     client.add_pod(pod_def)
-    common.deployment_wait(service_id=pod_id)
+    deployment_wait(service_id=pod_id)
 
     tasks = common.get_pod_tasks(pod_id)
     initial_id1 = tasks[0]['id']
@@ -497,7 +498,7 @@ def test_pod_health_failed_check():
     port = container1['endpoints'][0]['allocatedHostPort']
 
     common.block_iptable_rules_for_seconds(host, port, 7, block_input=True, block_output=False)
-    common.deployment_wait(service_id=pod_id)
+    deployment_wait(service_id=pod_id)
 
     tasks = common.get_pod_tasks(pod_id)
     for new_task in tasks:
@@ -513,7 +514,7 @@ def test_pod_with_persistent_volume():
 
     client = marathon.create_client()
     client.add_pod(pod_def)
-    common.deployment_wait(service_id=pod_id)
+    deployment_wait(service_id=pod_id)
 
     tasks = common.get_pod_tasks(pod_id)
 
@@ -542,7 +543,7 @@ def test_pod_with_persistent_volume_recovers():
 
     client = marathon.create_client()
     client.add_pod(pod_def)
-    common.deployment_wait(service_id=pod_id)
+    deployment_wait(service_id=pod_id)
 
     tasks = common.get_pod_tasks(pod_id)
     assert len(tasks) == 2, "The number of pod tasks is {}, but is expected to be 2".format(len(tasks))
