@@ -144,18 +144,18 @@ def run_dcos_command(command, raise_on_error=False, print_output=True):
     call = shlex.split(command)
     call.insert(0, 'dcos')
 
-    print("\n>>{}\n".format(' '.join(call)))
+    logger.info("\n>>{}\n".format(' '.join(call)))
 
     proc = subprocess.Popen(call, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    print('start communication')
+    logger.info('start communication')
     output, error = proc.communicate()
-    print('wait for return code...')
+    logger.info('wait for return code...')
     return_code = proc.wait()
     stdout = output.decode('utf-8')
     stderr = error.decode('utf-8')
 
     if print_output:
-        print(stdout, stderr, return_code)
+        logger.info("%s, %s, %d", stdout, stderr, return_code)
 
     if return_code != 0 and raise_on_error:
         raise DCOSException('Got error code {} when running command "dcos {}":\nstdout: "{}"\nstderr: "{}"'.format(
