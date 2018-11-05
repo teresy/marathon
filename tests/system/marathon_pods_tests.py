@@ -14,6 +14,7 @@ import logging
 
 from shakedown.clients import marathon, dcos_service_url
 from shakedown.clients.authentication import dcos_acs_token, DCOSAcsAuth
+from shakedown.clients.rpcclient import verify_ssl
 from shakedown.dcos.agent import required_private_agents # NOQA F401
 from shakedown.dcos.cluster import dcos_version_less_than # NOQA F401
 from shakedown.dcos.command import run_command_on_master
@@ -40,7 +41,7 @@ def get_pod_status_url(pod_id):
 def get_pod_status(pod_id):
     url = urljoin(DCOS_SERVICE_URL, get_pod_status_url(pod_id))
     auth = DCOSAcsAuth(dcos_acs_token())
-    return requests.get(url, auth=auth).json()
+    return requests.get(url, auth=auth, verify=verify_ssl()).json()
 
 
 def get_pod_instances_url(pod_id, instance_id):
@@ -58,13 +59,13 @@ def get_pod_versions_url(pod_id, version_id=""):
 def get_pod_versions(pod_id):
     url = urljoin(DCOS_SERVICE_URL, get_pod_versions_url(pod_id))
     auth = DCOSAcsAuth(dcos_acs_token())
-    return requests.get(url, auth=auth).json()
+    return requests.get(url, auth=auth, verify=verify_ssl()).json()
 
 
 def get_pod_version(pod_id, version_id):
     url = urljoin(DCOS_SERVICE_URL, get_pod_versions_url(pod_id, version_id))
     auth = DCOSAcsAuth(dcos_acs_token())
-    return requests.get(url, auth=auth).json()
+    return requests.get(url, auth=auth, verify=verify_ssl()).json()
 
 
 @shakedown.dcos.cluster.dcos_1_9
@@ -86,10 +87,10 @@ def test_create_pod():
 @pytest.mark.skipif("shakedown.dcos.cluster.ee_version() is None")
 @pytest.mark.skipif("common.docker_env_not_set()")
 def test_create_pod_with_private_image():
-    """Deploys a pod with a private Docker image, using Mesos containerizer."""
-
-    if not common.is_enterprise_cli_package_installed():
-        common.install_enterprise_cli_package()
+    """Deploys a pod with a private Docker image, using Mesos containerizer.
+        This method relies on the global `install_enterprise_cli` fixture to install the
+        enterprise-cli-package.
+    """
 
     username = os.environ['DOCKER_HUB_USERNAME']
     password = os.environ['DOCKER_HUB_PASSWORD']
@@ -238,7 +239,7 @@ def test_head_request_to_pods_endpoint():
 
     url = urljoin(DCOS_SERVICE_URL, get_pods_url())
     auth = DCOSAcsAuth(dcos_acs_token())
-    result = requests.head(url, auth=auth)
+    result = requests.head(url, auth=auth, verify=verify_ssl())
     assert result.status_code == 200
 
 
