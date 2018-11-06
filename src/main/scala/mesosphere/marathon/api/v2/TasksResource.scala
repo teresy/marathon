@@ -67,7 +67,7 @@ class TasksResource @Inject() (
         (appId, instances) <- instancesBySpec.instancesMap
         instance <- instances.instances
         app <- appIdsToApps(appId)
-        if (isAuthorized(ViewRunSpec, app) && (conditionSet.isEmpty || conditionSet(instance.state.condition)))
+        if isAuthorized(ViewRunSpec, app) && (conditionSet.isEmpty || conditionSet(instance.state.condition))
       } yield {
         EnrichedTask.fromInstance(
           instance,
